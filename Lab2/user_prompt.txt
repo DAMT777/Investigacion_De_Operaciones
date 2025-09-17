@@ -1,8 +1,2 @@
-Lee el enunciado y responde SOLO con JSON válido, siguiendo el esquema indicado en el system prompt.
-Reglas:
-- No agregues nada fuera del JSON.
-- Si falta información, pon null en descripciones o usa 0 en coeficientes que no existan.
-- Mantén variables x y y en minúsculas.
-- No calcules vértices ni óptimos. No incluyas análisis.
-
-Enunciado:
+Enunciado para método gráfico (2 variables). 
+Extrae variables de decisión, función objetivo (con coeficientes) y restricciones:

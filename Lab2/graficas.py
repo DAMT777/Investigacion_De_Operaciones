@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import json
+import math
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -20,78 +21,24 @@ class Restriccion:
     etiqueta: str = ""
 
 
-def parse_modelo_json(texto: str) -> Dict:
-    """
-    Espera un JSON con el esquema:
-    {
-      "variables": { "x": str|null, "y": str|null },
-      "objective": {
-        "type": "max"|"min",
-        "expression": "Z = a*x + b*y",
-        "coeffs": { "x": a, "y": b }
-      },
-      "constraints": [
-        { "lhs": { "x": ax, "y": by }, "op": "<=|>=|=", "rhs": c, "label": str|null }
-      ],
-      "nonnegativity": true|false
-    }
-    Devuelve: { "sentido": "max|min", "obj": (px, py), "restr": [Restriccion] }
-    """
-    try:
-        data = json.loads(texto)
-    except Exception as exc:
-        raise ValueError(f"No es JSON válido: {exc}")
-
-    if not isinstance(data, dict):
-        raise ValueError("JSON raíz debe ser un objeto.")
-
-    obj = data.get("objective") or {}
-    tipo = obj.get("type")
-    if tipo not in ("max", "min"):
-        raise ValueError("objective.type debe ser 'max' o 'min'.")
-
-    coeffs = (obj.get("coeffs") or {})
-    try:
-        px = float(coeffs["x"])
-        py = float(coeffs["y"])
-    except Exception:
-        raise ValueError("Coeficientes de la función objetivo inválidos o faltantes.")
-
-    restricciones: List[Restriccion] = []
-    for c in data.get("constraints") or []:
-        lhs = c.get("lhs") or {}
-        try:
-            a = float(lhs.get("x", 0.0))
-            b = float(lhs.get("y", 0.0))
-            op = c.get("op")
-            rhs = float(c.get("rhs", 0.0))
-        except Exception:
-            raise ValueError("Restricción con tipos inválidos.")
-
-        if op not in ("<=", ">=", "="):
-            raise ValueError("Operador de restricción inválido (use <=, >= o =).")
-        if abs(a) < EPS and abs(b) < EPS:
-            # Ignora líneas sin variables
-            continue
-
-        etiqueta = (c.get("label") or "").strip()
-        restricciones.append(Restriccion(a=a, b=b, signo=op, c=rhs, etiqueta=etiqueta))
-
-    # No negatividad
-    if bool(data.get("nonnegativity", True)):
-        if not any(r.a == 1 and r.b == 0 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
-            restricciones.append(Restriccion(1, 0, ">=", 0, "x ≥ 0"))
-        if not any(r.a == 0 and r.b == 1 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
-            restricciones.append(Restriccion(0, 1, ">=", 0, "y ≥ 0"))
-
-    if len(restricciones) < 2:
-        raise ValueError("Se requieren al menos dos restricciones.")
-
-    sentido = "max" if tipo == "max" else "min"
-    return {"sentido": sentido, "obj": (px, py), "restr": restricciones}
+def _deduplicar_puntos(puntos: List[Tuple[float, float]], nd: int = 6) -> List[Tuple[float, float]]:
+    salida, vistos = [], set()
+    for x, y in puntos:
+        clave = (round(x, nd), round(y, nd))
+        if clave not in vistos and np.isfinite(x) and np.isfinite(y):
+            vistos.add(clave)
+            salida.append((float(clave[0]), float(clave[1])))
+    return salida
 
 
-# ---------- Graficador ----------
+def _ordenar_puntos(puntos: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    if not puntos:
+        return puntos
+    cx = sum(x for x, _ in puntos) / len(puntos)
+    cy = sum(y for _, y in puntos) / len(puntos)
+    return sorted(puntos, key=lambda p: math.atan2(p[1] - cy, p[0] - cx))
+
+
 def _cumple_restriccion(p: Tuple[float, float], r: Restriccion) -> bool:
     x, y = p
     v = r.a * x + r.b * y
@@ -105,6 +52,10 @@ def _cumple_restriccion(p: Tuple[float, float], r: Restriccion) -> bool:
 def _interseccion(r1: Tuple[float, float, float], r2: Tuple[float, float, float]) -> Optional[Tuple[float, float]]:
     a1, b1, c1 = r1
     a2, b2, c2 = r2
+    if abs(a1) < EPS and abs(b1) < EPS:
+        return None
+    if abs(a2) < EPS and abs(b2) < EPS:
+        return None
     det = a1 * b2 - a2 * b1
     if abs(det) < EPS:
         return None
@@ -113,21 +64,141 @@ def _interseccion(r1: Tuple[float, float, float], r2: Tuple[float, float, float]
     return (x, y)
 
 
-def _deduplicar_ordenar(vertices: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
-    if not vertices:
-        return vertices
-    # Deduplicar con redondeo
-    vistos, out = set(), []
-    for x, y in vertices:
-        k = (round(float(x), 6), round(float(y), 6))
-        if k not in vistos and np.isfinite(x) and np.isfinite(y):
-            vistos.add(k)
-            out.append((k[0], k[1]))
-    # Orden polar
-    cx = sum(x for x, _ in out) / len(out)
-    cy = sum(y for _, y in out) / len(out)
-    out.sort(key=lambda p: np.arctan2(p[1] - cy, p[0] - cx))
-    return out
+def _parsear_linea_a_restriccion(linea: str) -> Optional[Restriccion]:
+    if not linea:
+        return None
+
+    s = linea.strip()
+
+    viñeta = re.match(r"^\s*([-–—•·*])\s+(.*)$", s)
+    if viñeta:
+        s = viñeta.group(2)
+
+    s = (
+        s.replace("≤", "<=")
+        .replace("⩽", "<=")
+        .replace("≥", ">=")
+        .replace("⩾", ">=")
+        .replace("−", "-")
+    )
+
+    s_sin_comentario = re.split(r"→|\[", s)[0].strip()
+    etiqueta = s_sin_comentario
+
+    m = re.search(r"(<=|>=|=)", s_sin_comentario)
+    if not m:
+        return None
+
+    op = m.group(1)
+    izquierda = s_sin_comentario[: m.start()]
+    derecha = s_sin_comentario[m.end() :]
+
+    patron_termino = re.compile(r"([+-]?\s*\d*(?:[\.,]\d*)?)\s*\*?\s*([xy])", re.I)
+
+    def descomponer(expr: str) -> Tuple[float, float, float]:
+        ax = ay = c = 0.0
+        spans = []
+        for t in patron_termino.finditer(expr):
+            s_coef = (t.group(1) or "").replace(" ", "")
+            var = t.group(2).lower()
+
+            if s_coef in ("", "+", "+.", "+,"):
+                coef = 1.0
+            elif s_coef in ("-", "-.", "-,"):
+                coef = -1.0
+            else:
+                coef = float(s_coef.replace(",", "."))
+
+            if var == "x":
+                ax += coef
+            else:
+                ay += coef
+            spans.append(t.span())
+
+        sin_vars = []
+        idx = 0
+        for a, b in spans:
+            sin_vars.append(expr[idx:a])
+            idx = b
+        sin_vars.append(expr[idx:])
+        resto = "".join(sin_vars)
+
+        for t in re.finditer(r"([+-]?\d+(?:[\.,]\d+)?)", resto):
+            c += float(t.group(1).replace(",", "."))
+
+        return ax, ay, c
+
+    lx, ly, lc = descomponer(izquierda)
+    rx, ry, rc = descomponer(derecha)
+
+    a = lx - rx
+    b = ly - ry
+    c = rc - lc
+
+    if abs(a) < EPS and abs(b) < EPS:
+        return None
+
+    return Restriccion(a=a, b=b, signo=op, c=c, etiqueta=etiqueta)
+
+
+def parse_salida_modelo(texto: str) -> Dict:
+    if not texto or not texto.strip():
+        raise ValueError("Texto del modelo vacío.")
+
+    sentido = "max"
+    m_tipo = re.search(r"Tipo\s*:\s*(Maximizar|Minimizar)", texto, re.I)
+    if m_tipo:
+        sentido = "max" if m_tipo.group(1).lower().startswith("max") else "min"
+
+    coef_x = coef_y = None
+    m_exp = re.search(r"Expresi[oó]n\s*:\s*Z\s*=\s*([^\n\r]+)", texto, re.I)
+    if m_exp:
+        expr = m_exp.group(1)
+        mx = re.search(r"([+-]?\d+(?:[\.,]\d+)?)(?=\s*\*?\s*x)", expr, re.I)
+        my = re.search(r"([+-]?\d+(?:[\.,]\d+)?)(?=\s*\*?\s*y)", expr, re.I)
+        if mx:
+            coef_x = float(mx.group(1).replace(",", "."))
+        if my:
+            coef_y = float(my.group(1).replace(",", "."))
+    if coef_x is None or coef_y is None:
+        m_cx = re.search(r"Coeficientes[^:\n]*:\s*.*?x\s*=\s*([+-]?\d+(?:[\.,]\d+)?)", texto, re.I)
+        m_cy = re.search(r"Coeficientes[^:\n]*:\s*.*?y\s*=\s*([+-]?\d+(?:[\.,]\d+)?)", texto, re.I)
+        if m_cx:
+            coef_x = float(m_cx.group(1).replace(",", "."))
+        if m_cy:
+            coef_y = float(m_cy.group(1).replace(",", "."))
+
+    if coef_x is None or coef_y is None:
+        raise ValueError("No se pudieron leer los coeficientes de la función objetivo.")
+
+    m_ini = re.search(r"(📐\s*)?Restricciones\s*:", texto, re.I)
+    if not m_ini:
+        raise ValueError("No se encontró la sección 'Restricciones:' en la salida.")
+    inicio = m_ini.end()
+
+    fin = len(texto)
+    m_fin = re.search(r"\n\s*(📌|🎯|🚫|──|—|\-\-|\_\_)", texto[inicio:], re.I)
+    if m_fin:
+        fin = inicio + m_fin.start()
+
+    bloque = texto[inicio:fin]
+
+    restricciones: List[Restriccion] = []
+    for cruda in bloque.splitlines():
+        r = _parsear_linea_a_restriccion(cruda)
+        if r:
+            restricciones.append(r)
+
+    # No negatividad por defecto si no viene explícita
+    if not any(r.a == 1 and r.b == 0 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
+        restricciones.append(Restriccion(1, 0, ">=", 0, "x ≥ 0"))
+    if not any(r.a == 0 and r.b == 1 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
+        restricciones.append(Restriccion(0, 1, ">=", 0, "y ≥ 0"))
+
+    if len(restricciones) < 2:
+        raise ValueError("No se detectaron suficientes restricciones en la sección correspondiente.")
+
+    return {"sentido": sentido, "obj": (coef_x, coef_y), "restr": restricciones}
 
 
 def graficar(
@@ -136,7 +207,7 @@ def graficar(
     obj: Tuple[float, float],
     sentido: str,
     titulo: str = "Región factible y solución",
-):
+) -> Optional[Dict]:
     rectas = [(r.a, r.b, r.c) for r in restricciones]
     candidatos: List[Tuple[float, float]] = []
 
@@ -146,7 +217,7 @@ def graficar(
             if p and all(_cumple_restriccion(p, r) for r in restricciones):
                 candidatos.append(p)
 
-    vertices = _deduplicar_ordenar(candidatos)
+    vertices = _ordenar_puntos(_deduplicar_puntos(candidatos))
     if not vertices:
         eje.clear()
         eje.text(0.5, 0.5, "Región factible vacía", ha="center", va="center")
@@ -163,6 +234,8 @@ def graficar(
     for r in restricciones:
         a, b, c = r.a, r.b, r.c
         etiqueta = r.etiqueta or f"{a}x + {b}y {r.signo} {c}"
+        if abs(a) < EPS and abs(b) < EPS:
+            continue
         if abs(b) < EPS:
             if abs(a) < EPS:
                 continue

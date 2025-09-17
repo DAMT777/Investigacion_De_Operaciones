@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-from graficas import parse_modelo_json, graficar
+from graficas import parse_salida_modelo, graficar
 from groq_worker import GroqWorker
 
 
@@ -118,7 +118,7 @@ class VentanaMetodoGrafico(QWidget):
         self.salida_texto.setReadOnly(True)
         self.salida_texto.setMinimumHeight(SALIDA_MIN_ALTO)
         self.salida_texto.setPlaceholderText(
-            "Aquí verás la salida JSON normalizada, más el análisis local."
+            "Aquí verás la salida con Variables, FO, Restricciones y No negatividad…"
         )
         columna.addWidget(self.salida_texto, stretch=1)
 
@@ -162,6 +162,7 @@ class VentanaMetodoGrafico(QWidget):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
+        # Reescalar logo si existe
         if self.lbl_logo.pixmap():
             self._cargar_logo("logo.png")
 
@@ -171,7 +172,7 @@ class VentanaMetodoGrafico(QWidget):
         eje.text(
             0.5,
             0.5,
-            "Aquí se mostrará el gráfico\ncuando el modelo JSON sea válido.",
+            "Aquí se mostrará el gráfico\ncuando el modelo sea válido.",
             ha="center",
             va="center",
         )
@@ -199,13 +200,21 @@ class VentanaMetodoGrafico(QWidget):
         self.entrada_enunciado.setEnabled(not ocupado)
 
     # ---------- Callbacks del worker ----------
-    def _al_terminar_exitoso(self, texto_json: str) -> None:
+    def _al_terminar_exitoso(self, texto_modelo: str) -> None:
+        self.salida_texto.setPlainText(texto_modelo)
         self._bloquear_ui_en_proceso(False)
         self.trabajador_ia = None
 
+        if ("Función Objetivo" not in texto_modelo) or ("Restricciones" not in texto_modelo):
+            self._mostrar_mensaje_grafica(
+                "No se detectó un modelo válido para graficar.\n"
+                "Asegúrate de que existan las secciones:\n"
+                "‘Función Objetivo’ y ‘Restricciones’."
+            )
+            return
+
         try:
-            datos = parse_modelo_json(texto_json)  # ← SOLO JSON
-            self.salida_texto.setPlainText(texto_json)
+            datos = parse_salida_modelo(texto_modelo)
 
             self.figura.clear()
             eje = self.figura.add_subplot(111)
@@ -222,26 +231,25 @@ class VentanaMetodoGrafico(QWidget):
                 vertices = resultado["vertices"]
                 punto_optimo = resultado["optimo"]["punto"]
                 valor_optimo = resultado["optimo"]["valor"]
-                px, py = datos["obj"]
+                coef_x, coef_y = datos["obj"]
 
                 vertices_fmt = ", ".join(f"({x:.2f}, {y:.2f})" for x, y in vertices)
                 analisis = [
                     "\n📊 Análisis de la solución (calculado por la app):",
                     f"- Vértices factibles: {vertices_fmt}",
                     f"- Solución óptima: x* = {punto_optimo[0]:.2f}, y* = {punto_optimo[1]:.2f}",
-                    f"- Valor óptimo Z* = {valor_optimo:.2f}   (Z = {px}*x + {py}*y)",
+                    f"- Valor óptimo Z* = {valor_optimo:.2f}   (Z = {coef_x}*x + {coef_y}*y)",
                 ]
                 self.salida_texto.append("\n".join(analisis))
             else:
                 self.salida_texto.append(
-                    "\n📊 Análisis de la solución (calculado por la app):\n- Región factible vacía o no acotada."
+                    "\n📊 Análisis de la solución (calculado por la app):\n"
+                    "- Región factible vacía o no acotada."
                 )
 
         except Exception as exc:  # noqa: BLE001
-            self._mostrar_mensaje_grafica(
-                "JSON inválido o incompleto.\nRevisa el enunciado y vuelve a intentar."
-            )
-            self.salida_texto.setPlainText(f"[Error] {exc}")
+            self._mostrar_mensaje_grafica("Ocurrió un error al graficar.")
+            self.salida_texto.append(f"\n[Error] No se pudo calcular el análisis:\n{exc}")
 
     def _al_fallar(self, mensaje_error: str) -> None:
         self.salida_texto.setPlainText(f"Error al llamar a Groq:\n{mensaje_error}")
