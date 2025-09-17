@@ -1,0 +1,2 @@
+Enunciado para método gráfico (2 variables).
+Extrae variables de decisión, función objetivo (con coeficientes) y restricciones:
