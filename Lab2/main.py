@@ -2,11 +2,13 @@ import sys
 from PySide6.QtWidgets import QApplication
 from interfaz import VentanaMetodoGrafico
 
-def main():
+
+def ejecutar_aplicacion() -> None:
     app = QApplication(sys.argv)
-    w = VentanaMetodoGrafico()
-    w.show()
+    ventana = VentanaMetodoGrafico()
+    ventana.show()
     sys.exit(app.exec())
 
+
 if __name__ == "__main__":
-    main()
+    ejecutar_aplicacion()

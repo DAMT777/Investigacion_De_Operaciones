@@ -1,201 +1,265 @@
 import sys
-from PySide6.QtWidgets import (
-    QApplication, QWidget, QLabel, QTextEdit, QPushButton,
-    QVBoxLayout, QHBoxLayout, QFrame, QSizePolicy, QMessageBox
-)
+from typing import Optional
+
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QCloseEvent
+from PySide6.QtWidgets import (
+    QApplication,
+    QWidget,
+    QLabel,
+    QTextEdit,
+    QPushButton,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFrame,
+    QSizePolicy,
+    QMessageBox,
+)
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from graficas import parse_salida_modelo, graficar
+
+from graficas import parse_modelo_json, graficar
 from groq_worker import GroqWorker
 
 
+APP_MARGIN = 16
+GAP_LG = 16
+GAP_MD = 12
+BOTON_ANCHO = 170
+BOTON_ALTO = 48
+LOGO_TAM = QSize(180, 180)
+TEXTO_MIN_ALTO = 150
+SALIDA_MIN_ALTO = 280
+
+
 class VentanaMetodoGrafico(QWidget):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Método Gráfico")
         self.resize(1200, 760)
 
-        self.worker: GroqWorker | None = None
+        self.trabajador_ia: Optional[GroqWorker] = None
 
-        root = QHBoxLayout(self)
-        root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(16)
+        self._construir_interfaz()
+        self._pintar_placeholder_grafica()
 
+    # ---------- Construcción UI ----------
+    def _construir_interfaz(self) -> None:
+        contenedor = QHBoxLayout(self)
+        contenedor.setContentsMargins(APP_MARGIN, APP_MARGIN, APP_MARGIN, APP_MARGIN)
+        contenedor.setSpacing(GAP_LG)
 
-        col_izq = QVBoxLayout()
-        col_izq.setSpacing(12)
+        columna_izq = self._construir_columna_izquierda()
+        columna_der = self._construir_columna_derecha()
 
-        lbl_titulo = QLabel("Optimización")
-        lbl_titulo.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        lbl_titulo.setStyleSheet("font-size: 22px; font-weight: 800;")
-        col_izq.addWidget(lbl_titulo)
+        contenedor.addLayout(columna_izq, stretch=3)
+        contenedor.addLayout(columna_der, stretch=2)
 
+        self._aplicar_estilos()
 
-        self.txt_problema = QTextEdit()
-        self.txt_problema.setPlaceholderText("Escribe aquí el enunciado del problema…")
-        self.txt_problema.setMinimumHeight(150)
-        col_izq.addWidget(self.txt_problema)
+    def _construir_columna_izquierda(self) -> QVBoxLayout:
+        columna = QVBoxLayout()
+        columna.setSpacing(GAP_MD)
 
-        self.canvas_frame = QFrame()
-        self.canvas_frame.setFrameShape(QFrame.Box)
-        self.canvas_frame.setLineWidth(2)
-        self.canvas_frame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        titulo = QLabel("Optimización")
+        titulo.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        titulo.setObjectName("tituloPrincipal")
+        columna.addWidget(titulo)
 
-        canvas_layout = QVBoxLayout(self.canvas_frame)
-        canvas_layout.setContentsMargins(8, 8, 8, 8)
+        self.entrada_enunciado = QTextEdit()
+        self.entrada_enunciado.setPlaceholderText("Escribe aquí el enunciado del problema…")
+        self.entrada_enunciado.setMinimumHeight(TEXTO_MIN_ALTO)
+        columna.addWidget(self.entrada_enunciado)
 
-        self.figure = Figure(figsize=(6, 4))
-        self.canvas = FigureCanvas(self.figure)
-        canvas_layout.addWidget(self.canvas)
+        self.marco_grafica = QFrame()
+        self.marco_grafica.setFrameShape(QFrame.Box)
+        self.marco_grafica.setLineWidth(2)
+        self.marco_grafica.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        col_izq.addWidget(self.canvas_frame, stretch=1)
+        layout_grafica = QVBoxLayout(self.marco_grafica)
+        layout_grafica.setContentsMargins(8, 8, 8, 8)
 
-        col_der = QVBoxLayout()
-        col_der.setSpacing(16)
+        self.figura = Figure(figsize=(6, 4))
+        self.canvas = FigureCanvas(self.figura)
+        layout_grafica.addWidget(self.canvas)
+        columna.addWidget(self.marco_grafica, stretch=1)
 
-        self.btn_solucionar = QPushButton("Solucionar")
-        self.btn_solucionar.setFixedSize(170, 48)
-        self.btn_solucionar.clicked.connect(self.on_solucionar)
-        col_der.addWidget(self.btn_solucionar, alignment=Qt.AlignRight)
+        return columna
 
-        logo_frame = QFrame()
-        logo_frame.setFrameShape(QFrame.Box)
-        logo_frame.setLineWidth(2)
-        logo_frame.setFixedSize(180, 180)
+    def _construir_columna_derecha(self) -> QVBoxLayout:
+        columna = QVBoxLayout()
+        columna.setSpacing(GAP_LG)
 
-        logo_layout = QVBoxLayout(logo_frame)
-        logo_layout.setContentsMargins(8, 8, 8, 8)
+        self.boton_resolver = QPushButton("Solucionar")
+        self.boton_resolver.setFixedSize(BOTON_ANCHO, BOTON_ALTO)
+        self.boton_resolver.clicked.connect(self._on_click_resolver)
+        columna.addWidget(self.boton_resolver, alignment=Qt.AlignRight)
 
-        lbl_logo = QLabel()
-        lbl_logo.setAlignment(Qt.AlignCenter)
+        self.marco_logo = QFrame()
+        self.marco_logo.setFrameShape(QFrame.Box)
+        self.marco_logo.setLineWidth(2)
+        self.marco_logo.setFixedSize(LOGO_TAM)
 
-        pixmap = QPixmap("logo.png")
-        if not pixmap.isNull():
-            pm = pixmap.scaled(
-                logo_frame.size() - QSize(16, 16),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
-            )
-            lbl_logo.setPixmap(pm)
-        else:
-            lbl_logo.setText("Logo")
+        layout_logo = QVBoxLayout(self.marco_logo)
+        layout_logo.setContentsMargins(8, 8, 8, 8)
 
-        logo_layout.addWidget(lbl_logo, alignment=Qt.AlignCenter)
-        col_der.addWidget(logo_frame, alignment=Qt.AlignRight)
+        self.lbl_logo = QLabel()
+        self.lbl_logo.setAlignment(Qt.AlignCenter)
+        layout_logo.addWidget(self.lbl_logo, alignment=Qt.AlignCenter)
+        self._cargar_logo("logo.png")
+        columna.addWidget(self.marco_logo, alignment=Qt.AlignRight)
 
-        lbl_modelo = QLabel("Modelo extraído (IA)")
-        lbl_modelo.setStyleSheet("font-weight: bold;")
-        col_der.addWidget(lbl_modelo)
+        etiqueta_modelo = QLabel("Modelo extraído (IA)")
+        etiqueta_modelo.setObjectName("subtitulo")
+        columna.addWidget(etiqueta_modelo)
 
-        self.txt_salida = QTextEdit()
-        self.txt_salida.setReadOnly(True)
-        self.txt_salida.setMinimumHeight(280)
-        self.txt_salida.setPlaceholderText(
-            "Aquí verás la salida con Variables, FO, Restricciones y No negatividad…"
+        self.salida_texto = QTextEdit()
+        self.salida_texto.setReadOnly(True)
+        self.salida_texto.setMinimumHeight(SALIDA_MIN_ALTO)
+        self.salida_texto.setPlaceholderText(
+            "Aquí verás la salida JSON normalizada, más el análisis local."
         )
-        col_der.addWidget(self.txt_salida, stretch=1)
+        columna.addWidget(self.salida_texto, stretch=1)
 
+        return columna
 
-        root.addLayout(col_izq, stretch=3)
-        root.addLayout(col_der, stretch=2)
+    def _aplicar_estilos(self) -> None:
+        self.setStyleSheet(
+            """
+            #tituloPrincipal { font-size: 22px; font-weight: 800; }
+            #subtitulo { font-weight: 700; }
+            QTextEdit {
+                font-size: 14px;
+                border-radius: 8px;
+                padding: 8px;
+            }
+            QFrame {
+                border-radius: 8px;
+            }
+            QPushButton {
+                font-weight: 700;
+                border-radius: 10px;
+                padding: 8px 14px;
+            }
+            QPushButton:disabled {
+                opacity: 0.6;
+            }
+            """
+        )
 
-        ax = self.figure.add_subplot(111)
-        ax.text(0.5, 0.5, "Aquí se mostrará el gráfico\ncuando el modelo sea válido.",
-                ha="center", va="center")
-        ax.set_axis_off()
+    def _cargar_logo(self, ruta: str) -> None:
+        pixmap = QPixmap(ruta)
+        if pixmap.isNull():
+            self.lbl_logo.setText("Logo")
+            return
+        ajustado = pixmap.scaled(
+            self.marco_logo.size() - QSize(16, 16),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation,
+        )
+        self.lbl_logo.setPixmap(ajustado)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        if self.lbl_logo.pixmap():
+            self._cargar_logo("logo.png")
+
+    # ---------- Interacciones ----------
+    def _pintar_placeholder_grafica(self) -> None:
+        eje = self.figura.add_subplot(111)
+        eje.text(
+            0.5,
+            0.5,
+            "Aquí se mostrará el gráfico\ncuando el modelo JSON sea válido.",
+            ha="center",
+            va="center",
+        )
+        eje.set_axis_off()
         self.canvas.draw()
 
-    def on_solucionar(self):
-        if not self.txt_problema.toPlainText().strip():
-            QMessageBox.information(
-                self,
-                "Atención",
-                "Escribe un enunciado del problema."
-            )
+    def _on_click_resolver(self) -> None:
+        enunciado = self.entrada_enunciado.toPlainText().strip()
+        if not enunciado:
+            QMessageBox.information(self, "Atención", "Escribe un enunciado del problema.")
             return
 
-        self.txt_salida.clear()
-        self.btn_solucionar.setEnabled(False)
-        self.btn_solucionar.setText("Procesando…")
+        self._bloquear_ui_en_proceso(True)
+        self.salida_texto.clear()
 
-        self.worker = GroqWorker(
-            problem_text=self.txt_problema.toPlainText().strip()
-        )
-        self.worker.finished.connect(self.on_ok)
-        self.worker.failed.connect(self.on_fail)
-        self.worker.start()
+        self.trabajador_ia = GroqWorker(problem_text=enunciado)
+        self.trabajador_ia.finished.connect(self._al_terminar_exitoso)
+        self.trabajador_ia.failed.connect(self._al_fallar)
+        self.trabajador_ia.start()
 
+    def _bloquear_ui_en_proceso(self, ocupado: bool) -> None:
+        self.boton_resolver.setEnabled(not ocupado)
+        self.boton_resolver.setText("Procesando…" if ocupado else "Solucionar")
+        QApplication.setOverrideCursor(Qt.WaitCursor if ocupado else Qt.ArrowCursor)
+        self.entrada_enunciado.setEnabled(not ocupado)
 
-    def on_ok(self, texto: str):
-        self.txt_salida.setPlainText(texto)
-        self.btn_solucionar.setEnabled(True)
-        self.btn_solucionar.setText("Solucionar")
-        self.worker = None
-
-        if ("Función Objetivo" not in texto) or ("Restricciones" not in texto):
-            self.figure.clear()
-            ax = self.figure.add_subplot(111)
-            ax.text(
-                0.5, 0.5,
-                "No se detectó un modelo válido para graficar.\n"
-                "Asegúrate de que existan las secciones:\n"
-                "‘Función Objetivo’ y ‘Restricciones’.",
-                ha="center", va="center"
-            )
-            ax.set_axis_off()
-            self.canvas.draw()
-            return
+    # ---------- Callbacks del worker ----------
+    def _al_terminar_exitoso(self, texto_json: str) -> None:
+        self._bloquear_ui_en_proceso(False)
+        self.trabajador_ia = None
 
         try:
-            data = parse_salida_modelo(texto)
+            datos = parse_modelo_json(texto_json)  # ← SOLO JSON
+            self.salida_texto.setPlainText(texto_json)
 
-            self.figure.clear()
-            ax = self.figure.add_subplot(111)
-            res = graficar(
-                ax,
-                data["restr"],
-                data["obj"],
-                data["sentido"],
-                titulo="Región factible y solución"
+            self.figura.clear()
+            eje = self.figura.add_subplot(111)
+            resultado = graficar(
+                eje,
+                datos["restr"],
+                datos["obj"],
+                datos["sentido"],
+                titulo="Región factible y solución",
             )
             self.canvas.draw()
 
-            if res:
-                verts = res["vertices"]
-                opt_pt = res["optimo"]["punto"]
-                opt_val = res["optimo"]["valor"]
-                px, py = data["obj"]
+            if resultado:
+                vertices = resultado["vertices"]
+                punto_optimo = resultado["optimo"]["punto"]
+                valor_optimo = resultado["optimo"]["valor"]
+                px, py = datos["obj"]
 
-                verts_fmt = ", ".join([f"({x:.2f}, {y:.2f})" for x, y in verts])
-
+                vertices_fmt = ", ".join(f"({x:.2f}, {y:.2f})" for x, y in vertices)
                 analisis = [
                     "\n📊 Análisis de la solución (calculado por la app):",
-                    f"- Vértices factibles: {verts_fmt}",
-                    f"- Solución óptima: x* = {opt_pt[0]:.2f}, y* = {opt_pt[1]:.2f}",
-                    f"- Valor óptimo Z* = {opt_val:.2f}   (Z = {px}*x + {py}*y)"
+                    f"- Vértices factibles: {vertices_fmt}",
+                    f"- Solución óptima: x* = {punto_optimo[0]:.2f}, y* = {punto_optimo[1]:.2f}",
+                    f"- Valor óptimo Z* = {valor_optimo:.2f}   (Z = {px}*x + {py}*y)",
                 ]
-                self.txt_salida.append("\n".join(analisis))
+                self.salida_texto.append("\n".join(analisis))
             else:
-                self.txt_salida.append(
+                self.salida_texto.append(
                     "\n📊 Análisis de la solución (calculado por la app):\n- Región factible vacía o no acotada."
                 )
 
-        except Exception as e:
-            print("[DEBUG] Error en parseo/graficación:", e)
-            self.figure.clear()
-            ax = self.figure.add_subplot(111)
-            ax.text(0.5, 0.5, "Ocurrió un error al graficar.", ha="center", va="center")
-            ax.set_axis_off()
-            self.canvas.draw()
-            self.txt_salida.append(f"\n[Error] No se pudo calcular el análisis:\n{e}")
+        except Exception as exc:  # noqa: BLE001
+            self._mostrar_mensaje_grafica(
+                "JSON inválido o incompleto.\nRevisa el enunciado y vuelve a intentar."
+            )
+            self.salida_texto.setPlainText(f"[Error] {exc}")
 
-    def on_fail(self, error: str):
-        self.txt_salida.setPlainText(f"Error al llamar a Groq:\n{error}")
-        self.btn_solucionar.setEnabled(True)
-        self.btn_solucionar.setText("Solucionar")
-        self.worker = None
+    def _al_fallar(self, mensaje_error: str) -> None:
+        self.salida_texto.setPlainText(f"Error al llamar a Groq:\n{mensaje_error}")
+        self._bloquear_ui_en_proceso(False)
+        self.trabajador_ia = None
+
+    def _mostrar_mensaje_grafica(self, mensaje: str) -> None:
+        self.figura.clear()
+        eje = self.figura.add_subplot(111)
+        eje.text(0.5, 0.5, mensaje, ha="center", va="center")
+        eje.set_axis_off()
+        self.canvas.draw()
+
+    # ---------- Ciclo de vida ----------
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        if self.trabajador_ia and self.trabajador_ia.isRunning():
+            self.trabajador_ia.terminate()
+        super().closeEvent(event)
 
 
 if __name__ == "__main__":
