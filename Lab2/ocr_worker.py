@@ -6,7 +6,6 @@ from PIL import Image, ImageOps, ImageFilter
 from config import OCR_LANG, OCR_PSM, OCR_DENOISE
 import pytesseract
 
-# Ajusta esta ruta si tu instalación de Tesseract está en otro sitio
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
@@ -19,7 +18,6 @@ class OCRWorker(QThread):
         self.image_path = image_path
 
     def _preprocess(self, img: Image.Image) -> Image.Image:
-        # Preprocesado ligero para textos impresos
         if OCR_DENOISE:
             img = ImageOps.grayscale(img)
             img = img.filter(ImageFilter.MedianFilter(size=3))

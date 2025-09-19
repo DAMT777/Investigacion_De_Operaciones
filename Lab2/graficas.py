@@ -68,15 +68,15 @@ def _parsear_linea_a_restriccion(linea: str) -> Optional[Restriccion]:
         return None
     s = linea.strip()
 
-    # Remueve viñetas tipo "-", "•", etc.
+
     viñeta = re.match(r"^\s*([-–—•·*])\s+(.*)$", s)
     if viñeta:
         s = viñeta.group(2)
 
-    # Normaliza símbolos
+
     s = s.replace("≤", "<=").replace("⩽", "<=").replace("≥", ">=").replace("⩾", ">=").replace("−", "-")
 
-    # Recorta comentarios/descripciones a la derecha
+
     s_sin_comentario = re.split(r"→|\[", s)[0].strip()
     etiqueta = s_sin_comentario
 
@@ -189,7 +189,6 @@ def parse_salida_modelo(texto: str) -> Dict:
         if r:
             restricciones.append(r)
 
-    # Asegura no negatividad si faltan
     if not any(r.a == 1 and r.b == 0 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
         restricciones.append(Restriccion(1, 0, ">=", 0, "x >= 0"))
     if not any(r.a == 0 and r.b == 1 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):

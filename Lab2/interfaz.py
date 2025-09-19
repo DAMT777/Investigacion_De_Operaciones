@@ -39,7 +39,6 @@ LOGO_TAM = QSize(180, 180)
 TEXTO_MIN_ALTO = 150
 SALIDA_MIN_ALTO = 280
 
-# Estética gráfica
 ASPECTO_GRAFICA = 2.4
 CANVAS_ANCHO_MAX = 1100
 GRAFICA_ALTO_MAX = 360
@@ -173,7 +172,6 @@ class VentanaMetodoGrafico(QWidget):
         self.lbl_logo.setAlignment(Qt.AlignCenter)
         layout_logo.addWidget(self.lbl_logo, alignment=Qt.AlignCenter)
 
-        # Cargar logo desde archivo (ruta relativa a este .py)
         self._cargar_logo("logo.png")
 
         columna.addWidget(self.marco_logo, alignment=Qt.AlignRight)
@@ -251,7 +249,6 @@ class VentanaMetodoGrafico(QWidget):
                 self.lbl_logo.setPixmap(QPixmap())
                 return
 
-            # Escalar al tamaño disponible dentro del marco (con padding)
             size_disp = self.marco_logo.size() - QSize(16, 16)
             ajustado = pm.scaled(
                 size_disp,
@@ -288,7 +285,7 @@ class VentanaMetodoGrafico(QWidget):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        # Reescalar logo si cambia el tamaño del marco
+
         if getattr(self, "lbl_logo", None) is not None:
             self._cargar_logo("logo.png")
         self._ajustar_aspecto_grafica()
@@ -329,7 +326,7 @@ class VentanaMetodoGrafico(QWidget):
             self.lbl_preview.clear()
             self.stack_grafica.setCurrentWidget(self.canvas)
 
-        # Evita spam
+
         if self.trabajador_ia and self.trabajador_ia.isRunning():
             self._flash_estado("Ya hay un proceso en ejecución…")
             return
