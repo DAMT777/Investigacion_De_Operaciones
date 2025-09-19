@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import math
 import re
 from dataclasses import dataclass
@@ -7,7 +6,6 @@ from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 EPS = 1e-9
 
@@ -22,7 +20,8 @@ class Restriccion:
 
 
 def _deduplicar_puntos(puntos: List[Tuple[float, float]], nd: int = 6) -> List[Tuple[float, float]]:
-    salida, vistos = [], set()
+    salida: List[Tuple[float, float]] = []
+    vistos = set()
     for x, y in puntos:
         clave = (round(x, nd), round(y, nd))
         if clave not in vistos and np.isfinite(x) and np.isfinite(y):
@@ -67,21 +66,17 @@ def _interseccion(r1: Tuple[float, float, float], r2: Tuple[float, float, float]
 def _parsear_linea_a_restriccion(linea: str) -> Optional[Restriccion]:
     if not linea:
         return None
-
     s = linea.strip()
 
+    # Remueve viñetas tipo "-", "•", etc.
     viñeta = re.match(r"^\s*([-–—•·*])\s+(.*)$", s)
     if viñeta:
         s = viñeta.group(2)
 
-    s = (
-        s.replace("≤", "<=")
-        .replace("⩽", "<=")
-        .replace("≥", ">=")
-        .replace("⩾", ">=")
-        .replace("−", "-")
-    )
+    # Normaliza símbolos
+    s = s.replace("≤", "<=").replace("⩽", "<=").replace("≥", ">=").replace("⩾", ">=").replace("−", "-")
 
+    # Recorta comentarios/descripciones a la derecha
     s_sin_comentario = re.split(r"→|\[", s)[0].strip()
     etiqueta = s_sin_comentario
 
@@ -115,6 +110,7 @@ def _parsear_linea_a_restriccion(linea: str) -> Optional[Restriccion]:
                 ay += coef
             spans.append(t.span())
 
+        # El resto podrían ser constantes sueltas
         sin_vars = []
         idx = 0
         for a, b in spans:
@@ -145,11 +141,13 @@ def parse_salida_modelo(texto: str) -> Dict:
     if not texto or not texto.strip():
         raise ValueError("Texto del modelo vacío.")
 
+    # --- Sentido ---
     sentido = "max"
     m_tipo = re.search(r"Tipo\s*:\s*(Maximizar|Minimizar)", texto, re.I)
     if m_tipo:
         sentido = "max" if m_tipo.group(1).lower().startswith("max") else "min"
 
+    # --- Coeficientes FO ---
     coef_x = coef_y = None
     m_exp = re.search(r"Expresi[oó]n\s*:\s*Z\s*=\s*([^\n\r]+)", texto, re.I)
     if m_exp:
@@ -160,6 +158,7 @@ def parse_salida_modelo(texto: str) -> Dict:
             coef_x = float(mx.group(1).replace(",", "."))
         if my:
             coef_y = float(my.group(1).replace(",", "."))
+
     if coef_x is None or coef_y is None:
         m_cx = re.search(r"Coeficientes[^:\n]*:\s*.*?x\s*=\s*([+-]?\d+(?:[\.,]\d+)?)", texto, re.I)
         m_cy = re.search(r"Coeficientes[^:\n]*:\s*.*?y\s*=\s*([+-]?\d+(?:[\.,]\d+)?)", texto, re.I)
@@ -171,6 +170,7 @@ def parse_salida_modelo(texto: str) -> Dict:
     if coef_x is None or coef_y is None:
         raise ValueError("No se pudieron leer los coeficientes de la función objetivo.")
 
+    # --- Bloque de restricciones ---
     m_ini = re.search(r"(📐\s*)?Restricciones\s*:", texto, re.I)
     if not m_ini:
         raise ValueError("No se encontró la sección 'Restricciones:' en la salida.")
@@ -189,16 +189,16 @@ def parse_salida_modelo(texto: str) -> Dict:
         if r:
             restricciones.append(r)
 
-    # No negatividad por defecto si no viene explícita
+    # Asegura no negatividad si faltan
     if not any(r.a == 1 and r.b == 0 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
-        restricciones.append(Restriccion(1, 0, ">=", 0, "x ≥ 0"))
+        restricciones.append(Restriccion(1, 0, ">=", 0, "x >= 0"))
     if not any(r.a == 0 and r.b == 1 and r.signo == ">=" and abs(r.c) < EPS for r in restricciones):
-        restricciones.append(Restriccion(0, 1, ">=", 0, "y ≥ 0"))
+        restricciones.append(Restriccion(0, 1, ">=", 0, "y >= 0"))
 
     if len(restricciones) < 2:
         raise ValueError("No se detectaron suficientes restricciones en la sección correspondiente.")
 
-    return {"sentido": sentido, "obj": (coef_x, coef_y), "restr": restricciones}
+    return {"sentido": sentido, "obj": (float(coef_x), float(coef_y)), "restr": restricciones}
 
 
 def graficar(
@@ -207,10 +207,11 @@ def graficar(
     obj: Tuple[float, float],
     sentido: str,
     titulo: str = "Región factible y solución",
-) -> Optional[Dict]:
+):
     rectas = [(r.a, r.b, r.c) for r in restricciones]
     candidatos: List[Tuple[float, float]] = []
 
+    # Intersecciones válidas
     for i in range(len(rectas)):
         for j in range(i + 1, len(rectas)):
             p = _interseccion(rectas[i], rectas[j])
@@ -220,15 +221,15 @@ def graficar(
     vertices = _ordenar_puntos(_deduplicar_puntos(candidatos))
     if not vertices:
         eje.clear()
-        eje.text(0.5, 0.5, "Región factible vacía", ha="center", va="center")
+        eje.text(0.5, 0.5, "Región factible vacía", ha="center", va="center", transform=eje.transAxes)
         eje.set_axis_off()
         return None
 
     xs = [x for x, _ in vertices]
     ys = [y for _, y in vertices]
-    xmin, xmax = min(0, min(xs)) - 5, max(xs) + 5
-    ymin, ymax = min(0, min(ys)) - 5, max(ys) + 5
-    X = np.linspace(xmin, xmax, 400)
+    xmin, xmax = min(0.0, min(xs)) - 2, max(xs) + 2
+    ymin, ymax = min(0.0, min(ys)) - 2, max(ys) + 2
+    X = np.linspace(xmin, xmax, 280)
 
     eje.clear()
     for r in restricciones:
@@ -250,7 +251,7 @@ def graficar(
     eje.scatter([x for x, _ in vertices], [y for _, y in vertices], s=40, label="Vértices")
 
     px, py = obj
-    valores = [px * x + py * y for x, y in vertices]
+    valores = np.fromiter((px * x + py * y for x, y in vertices), dtype=float)
     idx_opt = int(np.argmax(valores) if sentido.lower().startswith("max") else np.argmin(valores))
     punto_opt = vertices[idx_opt]
 
@@ -273,4 +274,4 @@ def graficar(
         handlelength=2.0,
     )
 
-    return {"vertices": vertices, "optimo": {"punto": punto_opt, "valor": valores[idx_opt]}}
+    return {"vertices": vertices, "optimo": {"punto": punto_opt, "valor": float(valores[idx_opt])}}

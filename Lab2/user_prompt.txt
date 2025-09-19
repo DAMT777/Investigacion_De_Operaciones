@@ -1,2 +1,21 @@
-Enunciado para método gráfico (2 variables). 
-Extrae variables de decisión, función objetivo (con coeficientes) y restricciones:
+Interpreta el siguiente enunciado de Programación Lineal (2 variables) para método gráfico y devuelve EXCLUSIVAMENTE el siguiente formato de texto plano:
+
+────────────────────────────
+📌 Variables de decisión:
+* x = [qué representa]
+* y = [qué representa]
+
+🎯 Función Objetivo:
+* Tipo: [Maximizar o Minimizar]
+* Expresión: Z = a*x + b*y
+* Coeficientes: x = a, y = b
+
+📐 Restricciones:
+* [inequidad 1 con x e y en ASCII]   → [breve descripción si aplica]
+* [inequidad 2]   → [...]
+* ...
+
+🚫 Condiciones de no negatividad:
+* x >= 0
+* y >= 0
+────────────────────────────
