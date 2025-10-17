@@ -1,6 +1,7 @@
 import math
 import tkinter as tk
 from tkinter import ttk, messagebox
+from tkinter.scrolledtext import ScrolledText
 
 from graph_model import validar_grafo_dirigido, construir_adyacencias, dijkstra
 from graph_drawer import offset_perpendicular, bezier_q_punto_y_tangente
@@ -83,14 +84,25 @@ class InterfazGrafo(tk.Tk):
     def _construir_zona_canvas(self):
         marco_derecho = ttk.Frame(self)
         marco_derecho.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 10), pady=(5, 10))
-
         ttk.Label(marco_derecho, text="Visualización del Grafo").pack(side=tk.TOP, anchor="w")
 
+        # Panel inferior para resultados y expresión (siempre visible)
+        panel_texto = ttk.Frame(marco_derecho)
+        panel_texto.pack(side=tk.BOTTOM, fill=tk.X, expand=False)
+
+        self.etiqueta_resultado = ttk.Label(panel_texto, text="", foreground="#224")
+        self.etiqueta_resultado.pack(side=tk.TOP, anchor="w", pady=(6, 0))
+
+        ttk.Label(panel_texto, text="Expresión del grafo (V, A) y salidas por vértice:").pack(side=tk.TOP, anchor="w", pady=(4, 2))
+        self.text_expresion = ScrolledText(panel_texto, height=10, wrap="word", font=("Segoe UI", 9))
+        self.text_expresion.pack(side=tk.TOP, fill=tk.X, expand=False)
+        self.text_expresion.configure(state="disabled")
+
+        # Canvas ocupa el espacio restante arriba
         self.canvas_grafo = tk.Canvas(marco_derecho, bg="white", highlightthickness=1, highlightbackground="#ddd")
         self.canvas_grafo.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        self.etiqueta_resultado = ttk.Label(marco_derecho, text="", foreground="#224")
-        self.etiqueta_resultado.pack(side=tk.TOP, anchor="w", pady=(6, 0))
+
 
     def _ajustar_scroll_matriz(self, evento):
         self.canvas_matriz.configure(scrollregion=self.canvas_matriz.bbox("all"))
@@ -113,6 +125,8 @@ class InterfazGrafo(tk.Tk):
         self.ultimo_camino_indices = None
         self.ultima_distancia = None
         self.etiqueta_resultado.config(text="")
+        # Limpiar expresión textual al recrear la matriz
+        self._set_text_expresion("")
 
         try:
             self.canvas_matriz.delete(self.ventana_matriz)
@@ -231,6 +245,64 @@ class InterfazGrafo(tk.Tk):
             self.combo_origen.set(nombres[0])
             self.combo_destino.set(nombres[min(1, len(nombres)-1)])
 
+    # Utilidad para escribir en el área de expresión
+    def _set_text_expresion(self, contenido: str):
+        if not hasattr(self, "text_expresion"):
+            return
+        self.text_expresion.configure(state="normal")
+        self.text_expresion.delete("1.0", tk.END)
+        if contenido:
+            self.text_expresion.insert(tk.END, contenido)
+        self.text_expresion.configure(state="disabled")
+
+    def _actualizar_expresion(self, nombres_col, matriz, dirigido: bool):
+        """Construye y muestra:
+        - V = (v1, v2, ...)
+        - A = ((u,v,w), ...)
+        - Salidas por vértice: u -> v(w), ...
+        Para no dirigido, A lista cada arista una sola vez (i<j). Incluye bucles (u,u,w) si w!=0.
+        """
+        n = len(nombres_col)
+        # V
+        v_str = "V = (" + ", ".join(nombres_col) + ")"
+
+        # A
+        aristas = []
+        if dirigido:
+            for i in range(n):
+                for j in range(n):
+                    w = matriz[i][j]
+                    if w != 0:
+                        aristas.append((nombres_col[i], nombres_col[j], w))
+        else:
+            for i in range(n):
+                # bucle
+                if matriz[i][i] != 0:
+                    aristas.append((nombres_col[i], nombres_col[i], matriz[i][i]))
+                for j in range(i+1, n):
+                    w = matriz[i][j]
+                    if w != 0:
+                        aristas.append((nombres_col[i], nombres_col[j], w))
+
+        a_items = [f"({u}, {v}, {w:g})" for u, v, w in aristas]
+        a_str = "A = (" + ", ".join(a_items) + ")"
+
+        # Salidas por vértice (lista de adyacencia)
+        lineas = [v_str, a_str, "", "Salidas por vértice:"]
+        for i in range(n):
+            salidas = []
+            for j in range(n):
+                w = matriz[i][j]
+                if w != 0 and (dirigido or i != j):
+                    # en no dirigido mostramos todas las conexiones desde i (ya está simétrica la matriz)
+                    salidas.append(f"{nombres_col[j]}({w:g})")
+                elif not dirigido and i == j and matriz[i][i] != 0:
+                    # bucle en no dirigido
+                    salidas.append(f"{nombres_col[j]}({matriz[i][i]:g})")
+            lineas.append(f"  {nombres_col[i]} -> " + (", ".join(salidas) if salidas else "∅"))
+
+        self._set_text_expresion("\n".join(lineas))
+
  
     def dibujar_grafo(self, camino_indices=None):
         if self.tamano_n <= 0:
@@ -267,6 +339,9 @@ class InterfazGrafo(tk.Tk):
                 for j in range(i+1, self.tamano_n):
                     w = max(matriz[i][j], matriz[j][i])
                     matriz[i][j] = matriz[j][i] = w
+
+        # Actualizar expresión V y A con la matriz ya normalizada según dirigido
+        self._actualizar_expresion(nombres_col, matriz, dirigido)
 
 
         if dirigido:
