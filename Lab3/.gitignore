@@ -1,0 +1,15 @@
+# Entornos locales y secretos
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+pip-wheel-metadata/
+
