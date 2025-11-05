@@ -7,11 +7,11 @@ from groq import Groq
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("parser_ai")
 
-client = None
-GROQ_API_KEY = "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"
+##client = NoneGROQ_API_KEY = "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"
+
 if GROQ_API_KEY:
     try:
-        client = Groq(api_key=GROQ_API_KEY)
+        ##client = Groq(api_key=GROQ_API_KEY)
         logger.info("Groq client inicializado.")
     except Exception as e:
         logger.warning(f"No se pudo inicializar Groq: {e}")
