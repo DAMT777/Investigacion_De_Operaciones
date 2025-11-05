@@ -24,6 +24,14 @@ class InterfazGrafo(tk.Tk):
 
         self.centro_canvas = (0, 0)
 
+        # Estado del grafo dibujado (para manejar clics sobre nodos)
+        self.ultimo_dirigido = False
+        self.ultima_matriz_norm = None
+        self.ultimo_nombres = []
+        self.ultima_posiciones = []
+        self.nodo_seleccionado = None
+        self._id_resalte_nodo = None
+
         self._construir_controles_superiores()
         self._construir_zona_matriz()
         self._construir_zona_canvas()
@@ -90,6 +98,16 @@ class InterfazGrafo(tk.Tk):
         panel_texto = ttk.Frame(marco_derecho)
         panel_texto.pack(side=tk.BOTTOM, fill=tk.X, expand=False)
 
+        # Propiedades del nodo seleccionado
+        self.etiqueta_propiedades = ttk.Label(
+            panel_texto,
+            text="Seleccione un nodo para ver sus propiedades.",
+            foreground="#224",
+            justify="left",
+            wraplength=900,
+        )
+        self.etiqueta_propiedades.pack(side=tk.TOP, anchor="w", pady=(0, 2))
+
         self.etiqueta_resultado = ttk.Label(panel_texto, text="", foreground="#224")
         self.etiqueta_resultado.pack(side=tk.TOP, anchor="w", pady=(6, 0))
 
@@ -125,6 +143,13 @@ class InterfazGrafo(tk.Tk):
         self.ultimo_camino_indices = None
         self.ultima_distancia = None
         self.etiqueta_resultado.config(text="")
+        # Reset selección de nodo y propiedades
+        self.nodo_seleccionado = None
+        self._id_resalte_nodo = None
+        try:
+            self.etiqueta_propiedades.config(text="Seleccione un nodo para ver sus propiedades.")
+        except Exception:
+            pass
         # Limpiar expresión textual al recrear la matriz
         self._set_text_expresion("")
 
@@ -394,13 +419,31 @@ class InterfazGrafo(tk.Tk):
                 self._dibujar_bucle_variable(i, posiciones[i], (cx, cy), matriz[i][i], dirigido)
 
         for i, (x, y) in enumerate(posiciones):
-            self._dibujar_nodo(x, y, nombres_col[i])
+            self._dibujar_nodo(i, x, y, nombres_col[i])
 
-    def _dibujar_nodo(self, x, y, nombre):
+        # Guardar estado para interacciones con clic
+        self.ultimo_dirigido = dirigido
+        self.ultima_matriz_norm = matriz
+        self.ultimo_nombres = nombres_col
+        self.ultima_posiciones = posiciones
+
+        # Si había un nodo previamente seleccionado, re-aplicar resaltado
+        if self.nodo_seleccionado is not None and 0 <= self.nodo_seleccionado < len(posiciones):
+            self._resaltar_nodo(self.nodo_seleccionado)
+
+    def _dibujar_nodo(self, indice, x, y, nombre):
         radio = 18
-        self.canvas_grafo.create_oval(x - radio, y - radio, x + radio, y + radio,
-                                      fill="#f5f5ff", outline="#334", width=2)
-        self.canvas_grafo.create_text(x, y, text=nombre, font=("Segoe UI", 10, "bold"), fill="#223")
+        self.canvas_grafo.create_oval(
+            x - radio, y - radio, x + radio, y + radio,
+            fill="#f5f5ff", outline="#334", width=2,
+            tags=("nodo", f"nodo_{indice}")
+        )
+        self.canvas_grafo.create_text(
+            x, y, text=nombre, font=("Segoe UI", 10, "bold"), fill="#223",
+            tags=("nodo", f"nodo_{indice}")
+        )
+        # Vincular clic para seleccionar nodo y mostrar propiedades
+        self.canvas_grafo.tag_bind(f"nodo_{indice}", "<Button-1>", lambda e, idx=indice: self._on_click_nodo(idx))
 
     def _dibujar_etiqueta(self, x, y, texto, color_texto="#333", font=("Segoe UI", 9)):
         """Dibuja una etiqueta con pequeño fondo blanco para mejorar contraste.
@@ -416,6 +459,73 @@ class InterfazGrafo(tk.Tk):
             # Asegurar orden: rectángulo debajo del texto.
             self.canvas_grafo.tag_raise(tid, rid)
         return tid
+
+    def _on_click_nodo(self, indice):
+        # Mantener seleccionado y resaltar en el canvas
+        self.nodo_seleccionado = indice
+        self._resaltar_nodo(indice)
+        self._mostrar_propiedades_nodo(indice)
+
+    def _resaltar_nodo(self, indice):
+        # Quitar resaltado anterior si existe
+        if self._id_resalte_nodo is not None:
+            try:
+                self.canvas_grafo.delete(self._id_resalte_nodo)
+            except Exception:
+                pass
+            self._id_resalte_nodo = None
+        if not self.ultima_posiciones or indice < 0 or indice >= len(self.ultima_posiciones):
+            return
+        x, y = self.ultima_posiciones[indice]
+        radio = 22
+        self._id_resalte_nodo = self.canvas_grafo.create_oval(
+            x - radio, y - radio, x + radio, y + radio,
+            outline="#0a84ff", width=3
+        )
+
+    def _mostrar_propiedades_nodo(self, indice):
+        try:
+            nombres = self.ultimo_nombres
+            matriz = self.ultima_matriz_norm
+            dirigido = self.ultimo_dirigido
+            n = len(nombres)
+            if not matriz or indice < 0 or indice >= n:
+                return
+        except Exception:
+            return
+
+        nombre_v = nombres[indice]
+        if dirigido:
+            # a v: salidas (v -> w)
+            ady_a = [(nombres[j], matriz[indice][j]) for j in range(n) if matriz[indice][j] != 0 and j != indice]
+            # de v: entradas (u -> v)
+            ady_de = [(nombres[i], matriz[i][indice]) for i in range(n) if matriz[i][indice] != 0 and i != indice]
+
+            lista_a = ", ".join(f"{w}({peso:g})" for w, peso in ady_a) or "∅"
+            lista_de = ", ".join(f"{u}({peso:g})" for u, peso in ady_de) or "∅"
+            texto = (
+                f"Nodo seleccionado: {nombre_v}\n"
+                f"Nodos adyacentes a {nombre_v}: {lista_a}\n"
+                f"Nodos adyacentes de {nombre_v}: {lista_de}"
+            )
+        else:
+            vecinos = []
+            for j in range(n):
+                if j == indice:
+                    if matriz[indice][indice] != 0:
+                        vecinos.append((nombres[indice], matriz[indice][indice]))
+                    continue
+                if matriz[indice][j] != 0 or matriz[j][indice] != 0:
+                    peso = matriz[indice][j]
+                    vecinos.append((nombres[j], peso))
+            lista = ", ".join(f"{w}({peso:g})" for w, peso in vecinos) or "∅"
+            texto = (
+                f"Nodo seleccionado: {nombre_v}\n"
+                f"Nodos adyacentes a {nombre_v}: {lista}"
+            )
+
+        if hasattr(self, "etiqueta_propiedades"):
+            self.etiqueta_propiedades.config(text=texto)
 
     def _offset_perpendicular(self, x1, y1, x2, y2, distancia):
         return offset_perpendicular(x1, y1, x2, y2, distancia)

@@ -8,7 +8,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("parser_ai")
 
 client = None
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY = "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"
 if GROQ_API_KEY:
     try:
         client = Groq(api_key=GROQ_API_KEY)
