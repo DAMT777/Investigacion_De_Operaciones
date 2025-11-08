@@ -17,32 +17,7 @@
   <body class="bg-gradient theme-dark">
     <div class="d-flex min-vh-100 app-shell">
       <!-- Sidebar -->
-      <aside class="sidebar p-3 d-flex flex-column">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <div>
-            <div class="brand"><i class="bi bi-hexagon me-2"></i>OptiLearn</div>
-            <small class="text-dark-50">Optimización No Lineal</small>
-          </div>
-          <button class="btn btn-icon" id="collapseBtn" title="Ocultar barra"><i class="bi bi-layout-sidebar-inset-reverse"></i></button>
-        </div>
-        
-        <div class="mb-2 small text-dark-50">Métodos disponibles</div>
-        <div class="mb-3">
-          <ul class="list-unstyled small nav-vertical">
-            <li><a class="item-link" href="/methods/qp">Programación cuadrática</a></li>
-            <li><a class="item-link" href="/methods/lagrange">Lagrange</a></li>
-            <li><a class="item-link" href="/methods/kkt">Condiciones KKT</a></li>
-            <li><a class="item-link" href="/methods/gradient">Gradiente</a></li>
-            <li><a class="item-link" href="/methods/differential">Cálculo diferencial</a></li>
-          </ul>
-        </div>
-        <div class="mt-auto small d-flex align-items-center gap-2 justify-content-between">
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="themeToggle">
-            <label class="form-check-label" for="themeToggle">Modo oscuro</label>
-          </div>
-        </div>
-      </aside>
+      
 
       <!-- Main area -->
       <div class="flex-grow-1 d-flex flex-column">
@@ -50,12 +25,12 @@
           <!-- Chat only -->
           <section class="card-soft p-0 flex-grow-1 w-100 chat-panel" style="min-width: 520px;">
             <div class="px-3 py-2 d-flex align-items-center gap-2 chat-header">
-              <button class="btn btn-icon d-none" id="expandBtn" title="Mostrar barra"><i class="bi bi-layout-sidebar-inset"></i></button>
+              <button class="menu-btn" id="menuBtn" title="Menú">
+                <span class="inner"></span>
+              </button>
               <h6 class="m-0">Asistente Educativo</h6>
-              <span id="connStatus" class="conn-status ms-auto offline">
-                <span class="dot"></span>
-                <span class="label">Desconectado</span>
-              </span>
+              <!-- Indicador de conexión removido a solicitud del usuario -->
+              <div class="ms-auto"></div>
             </div>
             <div id="chat" class="chat-area p-3">
               <div id="hero" class="hero text-center">
@@ -63,7 +38,7 @@
                 <div class="hint text-dark-50">Describe un problema o pega un JSON con <code>objective_expr</code>.</div>
               </div>
             </div>
-            <div class="px-3 pt-1 pb-2 d-flex gap-2 align-items-center chat-footer">
+            <div class="px-3 pt-1 pb-3 d-flex gap-2 align-items-center chat-footer">
               <div class="chat-input flex-grow-1 d-flex align-items-center px-3">
                 <input id="chatInput" class="form-control border-0 bg-transparent flex-grow-1" placeholder="Mensaje al asistente"/>
                 <button id="sendBtn" class="btn btn-primary rounded-circle send-inline" title="Enviar"><i class="bi bi-arrow-up"></i></button>
@@ -74,7 +49,37 @@
       </div>
     </div>
 
+    <!-- Sidebar flotante (overlay) -->
+    <div id="sideBackdrop" class="overlay-backdrop" role="button" aria-label="Cerrar menú" tabindex="-1"></div>
+    <aside id="sidePanel" class="overlay-sidebar" aria-label="Menú lateral">
+      <div class="overlay-header p-3 d-flex align-items-center justify-content-between">
+        <div>
+          <div class="brand"><i class="bi bi-hexagon me-2"></i>OptiLearn</div>
+          <small class="text-dark-50">Optimización No Lineal</small>
+        </div>
+        <button class="btn btn-icon" id="menuClose" title="Cerrar"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <hr class="overlay-sep my-0">
+      <div class="overlay-body p-3">
+        <div class="mb-2 small text-dark-50">Métodos disponibles</div>
+        <ul class="list-unstyled small nav-vertical">
+          <li><a class="item-link" href="/methods/qp">Programación cuadrática</a></li>
+          <li><a class="item-link" href="/methods/lagrange">Lagrange</a></li>
+          <li><a class="item-link" href="/methods/kkt">Condiciones KKT</a></li>
+          <li><a class="item-link" href="/methods/gradient">Gradiente</a></li>
+          <li><a class="item-link" href="/methods/differential">Cálculo diferencial</a></li>
+        </ul>
+      </div>
+      <div class="overlay-footer mt-auto p-3 small d-flex align-items-center gap-2">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="themeToggle">
+          <label class="form-check-label" for="themeToggle">Modo oscuro</label>
+        </div>
+      </div>
+    </aside>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/opti_app/js/app.js"></script>
   </body>
   </html>
+

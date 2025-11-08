@@ -130,6 +130,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   connectWS();
   const sendBtn = el('#sendBtn');
   const input = el('#chatInput');
+  // Menú lateral (overlay)
+  const menuBtn = el('#menuBtn');
+  const menuClose = el('#menuClose');
+  const backdrop = el('#sideBackdrop');
+  const openMenu = ()=> document.body.classList.add('menu-open');
+  const closeMenu = ()=> document.body.classList.remove('menu-open');
+  if(menuBtn){ menuBtn.addEventListener('click', openMenu); }
+  if(menuClose){ menuClose.addEventListener('click', closeMenu); }
+  if(backdrop){ backdrop.addEventListener('click', closeMenu); }
+  document.addEventListener('keydown', (ev)=>{ if(ev.key==='Escape'){ closeMenu(); }});
   const doSend = ()=>{
     if(!input) return;
     const text = (input.value || '').trim();
