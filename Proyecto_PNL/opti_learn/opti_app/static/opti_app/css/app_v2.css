@@ -1,0 +1,97 @@
+/* OptiLearn UI (restaurado + animaciones + modo claro) */
+:root{
+  /* Light */
+  --c-bg-1:#eff9ff; --c-bg-2:#dcf1fd; --c-s1:#c1e7fc; --c-s2:#96d9fa; --c-s3:#65c2f5; --c-s4:#40a6f1;
+  --c-p1:#2185e4; --c-p2:#2274d3; --c-ink:#193152;
+  /* Dark */
+  --d-surface:#0f1b34; --d-ink:#cfd9e6; --d-muted:#95a7c0;
+}
+
+/* Temas */
+body.theme-dark{ color:var(--d-ink); background: var(--d-surface); }
+.bg-gradient.theme-dark{ background: var(--d-surface); }
+/* Asegurar que todo el lienzo tenga el mismo color del chat */
+body.theme-dark .app-shell,
+body.theme-dark main,
+body.theme-dark .flex-grow-1{ background: var(--d-surface) !important; }
+
+body.theme-light{ color: var(--c-ink); background: #ffffff; }
+.bg-gradient.theme-light{ background: #ffffff; }
+body.theme-light .app-shell,
+body.theme-light main,
+body.theme-light .flex-grow-1{ background: #ffffff !important; }
+
+/* Sidebar */
+/* Sidebar con color distinto al chat */
+.sidebar{ width:280px; background: linear-gradient(180deg, #0e2846, #144a83); color: var(--d-ink); }
+/* Mantener animación de colapso; no forzar color al colapsar */
+/* body.theme-dark .sidebar usa el gradiente por defecto */
+body.theme-dark .card-soft{ background: var(--d-surface); }
+body.theme-dark .bg-gradient{ background: var(--d-surface); }
+.app-shell .sidebar{ flex: 0 0 280px; width: 280px; transition: flex-basis .3s ease, width .3s ease, opacity .2s ease, transform .3s ease; }
+body.theme-light .sidebar{ background: linear-gradient(180deg, #eaf5ff, #d6ecff); color:#0b2a4a; }
+
+.brand{ font-weight:600; }
+.btn-icon{ background:#122346; border:1px solid #1e3561; color:#9bbcff; padding:4px 8px; border-radius:10px; width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; }
+.item-link{ display:block; padding:8px 10px; border-radius:10px; color:inherit; text-decoration:none; }
+.item-link:hover{ background: rgba(255,255,255,.08); }
+/* Estética refinada del sidebar (sin cambiar contenido) */
+.sidebar{ padding-top: 12px; box-shadow: inset -1px 0 0 rgba(255,255,255,0.06); }
+.sidebar .brand{ font-size: 18px; letter-spacing: .2px; }
+.sidebar .text-dark-50{ color: rgba(255,255,255,.72) !important; }
+.sidebar .nav-vertical{ margin: 6px 0 10px; padding: 4px 0; }
+.sidebar .nav-vertical li{ margin-bottom: 6px; }
+.sidebar .item-link{ padding: 10px 12px; border-radius: 12px; color: rgba(255,255,255,.92); transition: background .2s ease, box-shadow .2s ease, transform .06s; }
+.sidebar .item-link:hover{ background: rgba(255,255,255,.08); box-shadow: inset 2px 0 0 rgba(33,133,228,.75); }
+.sidebar .item-link:active{ transform: translateY(1px); }
+.sidebar .form-check-input{ box-shadow: none; }
+.sidebar .form-check-label{ color: rgba(255,255,255,.9); }
+/* Modo claro equivalente */
+body.theme-light .sidebar{ box-shadow: inset -1px 0 0 rgba(0,0,0,0.06); }
+body.theme-light .sidebar .text-dark-50{ color: rgba(0,0,0,.6) !important; }
+body.theme-light .sidebar .item-link{ color: #0b2a4a; }
+body.theme-light .sidebar .item-link:hover{ background: rgba(0,0,0,.05); box-shadow: inset 2px 0 0 rgba(33,133,228,.85); }
+
+/* Contenedores principales (chat y panel) */
+.card-soft{ background: var(--d-surface); border-radius: 16px; box-shadow: 0 8px 24px rgba(3,12,30,.5); }
+/* En modo claro, igualar exactamente el fondo del chat con el de la página */
+body.theme-light .card-soft{ background:#ffffff; box-shadow: none; border: none; }
+.chat-area{ height: calc(100vh - 220px); overflow:auto; padding-bottom: 8px; }
+/* En estado vacío, acercar hero e input y centrar mejor verticalmente */
+body.is-empty .chat-area{ height: auto; padding-bottom: 0; }
+
+/* Estado vacío (hero) */
+.hero{ margin-top: 10vh; opacity:.9; }
+.is-empty #hero{ width: 60%; max-width: 820px; margin: 16vh auto 6px; text-align: left; }
+.is-empty .card-soft{ box-shadow: none; }
+.is-empty section> .border-top{ border-top-color: transparent !important; display:flex !important; justify-content:center; }
+
+/* Input de chat */
+.chat-input{ display:flex; align-items:center; gap:8px; border-radius:18px; padding:0 10px; min-height: 44px; }
+/* Oscuro: mismo tono exacto que el fondo pero con contorno sutil */
+body.theme-dark .chat-input{ background: var(--d-surface); border:1px solid rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+.chat-input input{ color: var(--d-ink); background:transparent; }
+.chat-input input::placeholder{ color:#98a4b6; }
+/* Claro: fondo claro con borde sutil */
+body.theme-light .chat-input{ background:#eef3fb; box-shadow: inset 0 0 0 1px #d8e4f7; border:1px solid #c8d8f2; }
+body.theme-light .chat-input input{ color:#223; }
+body.theme-light .chat-input input::placeholder{ color:#8796ad; }
+.is-empty .chat-input{ width:60%; max-width:820px; margin: 0 auto 0; }
+.send-inline{ width:36px; height:36px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin-left:8px; margin-right:4px; }
+
+/* Colapso de sidebar + botón expand (animado) */
+.sidebar-hidden .sidebar{ flex-basis:0 !important; width:0 !important; opacity:0; transform:translateX(-24px); pointer-events:none; }
+.sidebar-hidden .chat-area{ height: calc(100vh - 180px); }
+.sidebar-hidden .chat-header{ position:relative; padding-left:16px !important; }
+.sidebar-hidden #expandBtn{ display:inline-flex !important; position:absolute; left:0; top:50%; transform:translate(-36px,-50%); width:28px; height:28px; background:rgba(18,35,70,.65); border:1px solid #2a4576; color:#9bc3ff; box-shadow:0 4px 12px rgba(0,0,0,.25); }
+
+/* Transiciones suaves */
+main{ transition: padding .3s ease; }
+.chat-header{ transition: padding .3s ease, background-color .25s ease, border-color .25s ease, color .25s ease; }
+
+/* Transiciones de tema (suaves para fondos, texto y bordes) */
+body, .app-shell, main, .flex-grow-1,
+.sidebar, .card-soft, .chat-input, .item-link,
+.brand, .text-dark-50, .form-check-label{
+  transition: background-color .35s ease, color .25s ease, border-color .35s ease, box-shadow .35s ease;
+}
