@@ -7,20 +7,20 @@ function getCookie(name){
 const csrftoken = getCookie('csrftoken');
 
 const el = (sel)=>document.querySelector(sel);
-const chat = el('#chat');
+let chatRef = null; const getChat = () => (chatRef || (chatRef = document.getElementById('chat')));
 const historyBox = el('#history');
 let collapseBtn = null;
 let expandBtn = null;
-const hero = el('#hero');
+let heroRef = null; const getHero = () => (heroRef || (heroRef = document.getElementById('hero')));
 
 function addMsg(role, text){
   const wrap = document.createElement('div');
   wrap.className = `msg ${role}`;
   const safe = String(text).replace(/</g,'&lt;');
   wrap.innerHTML = `<div class="bubble">${safe}</div>`;
-  chat.appendChild(wrap);
-  chat.scrollTop = chat.scrollHeight;
-  if(hero){ hero.style.display='none'; }
+  (getChat()||document.body).appendChild(wrap);
+  const _c=getChat(); if(_c){ _c.scrollTop = _c.scrollHeight; }
+  { const h=getHero(); if(h){ h.style.display='none'; } }
   updateEmptyState();
 }
 
@@ -30,7 +30,11 @@ function connectWS(){
   const sid = (window.OPTI && window.OPTI.CHAT_SESSION_ID) ? window.OPTI.CHAT_SESSION_ID : '';
   if(!sid) return;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  setConnStatus('connecting');
   ws = new WebSocket(`${proto}://${location.host}/ws/chat/${sid}/`);
+  ws.onopen = ()=> setConnStatus('online');
+  ws.onclose = ()=> setConnStatus('offline');
+  ws.onerror = ()=> setConnStatus('offline');
   ws.onmessage = (e)=>{
     try { const msg = JSON.parse(e.data); if(msg.type==='assistant_message'){ addMsg('assistant', msg.text);} } catch{}
   };
@@ -73,21 +77,32 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Connect WS and send messages
   connectWS();
   const sendBtn = el('#sendBtn');
-  if(sendBtn){
-    sendBtn.addEventListener('click', ()=>{
-      const txtEl = el('#chatInput');
-      const t = txtEl.value.trim(); if(!t || !ws) return;
-      addMsg('user', t);
-      ws.send(JSON.stringify({type:'user_message', text: t}));
-      txtEl.value='';
-    });
-    const input = el('#chatInput');
-    if(input){
-      input.addEventListener('keydown', (ev)=>{
-        if(ev.key === 'Enter' && !ev.shiftKey){ ev.preventDefault(); sendBtn.click(); }
-      });
+  const input = el('#chatInput');
+  const doSend = ()=>{
+    if(!input) return;
+    const text = (input.value || '').trim();
+    if(!text) return;
+    addMsg('user', text);
+    if(ws && ws.readyState === 1){
+      try { ws.send(JSON.stringify({type:'user_message', text})); } catch {}
     }
+    input.value = '';
+  };
+  if(sendBtn){ sendBtn.addEventListener('click', doSend); }
+  if(input){
+    input.addEventListener('keydown', (ev)=>{
+      if(ev.key === 'Enter' && !ev.shiftKey){ ev.preventDefault(); doSend(); }
+    });
   }
+  // Delegación por si el DOM re-renderiza elementos
+  document.addEventListener('click', (ev)=>{
+    const target = ev.target;
+    if(!target) return;
+    if(target.id === 'sendBtn' || target.closest && target.closest('#sendBtn')){
+      ev.preventDefault();
+      doSend();
+    }
+  });
 
   try{ if(historyBox) renderHistory(JSON.parse(localStorage.getItem('opti_hist')||'[]')); }catch{}
   updateEmptyState();
@@ -99,12 +114,23 @@ function renderHistory(items){
 }
 
 function updateEmptyState(){
-  if(!chat) return;
-  const hasMessages = chat.querySelector('.msg') !== null;
+  if(!getChat()) return;
+  const hasMessages = getChat().querySelector('.msg') !== null;
   if(hasMessages){
     document.body.classList.remove('is-empty');
   } else {
-    if(hero){ hero.style.display='block'; }
+    { const h=getHero(); if(h){ h.style.display='block'; } }
     document.body.classList.add('is-empty');
+  }
+}
+
+function setConnStatus(state){
+  const el = document.getElementById('connStatus');
+  if(!el) return;
+  el.classList.remove('online','offline','connecting');
+  el.classList.add(state);
+  const label = el.querySelector('.label');
+  if(label){
+    label.textContent = state === 'online' ? 'Conectado' : state === 'connecting' ? 'Conectando...' : 'Desconectado';
   }
 }
