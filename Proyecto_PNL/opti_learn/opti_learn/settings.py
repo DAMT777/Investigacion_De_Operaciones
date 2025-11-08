@@ -93,3 +93,20 @@ CHANNEL_LAYERS = {
     }
 }
 
+# Configuración del asistente IA (Groq)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")  # No hardcodear secretos
+AI_ASSISTANT = {
+    'provider': 'groq',
+    # Modelos recomendados por Groq a 2025: usa env si está definido.
+    'model': os.getenv('GROQ_MODEL', 'llama-3.1-8b-instant'),
+    'fallback_models': [
+        os.getenv('GROQ_FALLBACK_1', 'llama-3.1-70b-versatile'),
+        os.getenv('GROQ_FALLBACK_2', 'mixtral-8x7b-32768'),
+    ],
+    'temperature': float(os.getenv('AI_TEMPERATURE', '0.2')),
+    'max_tokens': int(os.getenv('AI_MAX_TOKENS', '2048')),
+    'prompt_path': os.getenv(
+        'AI_PROMPT_PATH',
+        str((Path(__file__).resolve().parent.parent / 'opti_app' / 'ai' / 'prompt_contextual.txt').resolve())
+    ),
+}

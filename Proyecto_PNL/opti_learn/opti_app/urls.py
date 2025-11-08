@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import index, ParseProblemAPIView, ProblemViewSet, SolutionViewSet, method_view
+from .views import index, ParseProblemAPIView, ProblemViewSet, SolutionViewSet, method_view, ai_chat
 
 
 router = DefaultRouter()
@@ -13,5 +13,6 @@ urlpatterns = [
     path('', index, name='index'),
     path('methods/<str:method_key>', method_view, name='method'),
     path('api/problems/parse', ParseProblemAPIView.as_view(), name='problems-parse'),
+    path('api/ai/chat', ai_chat, name='ai-chat'),
     path('api/', include(router.urls)),
 ]

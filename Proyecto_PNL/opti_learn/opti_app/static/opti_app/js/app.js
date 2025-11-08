@@ -24,6 +24,53 @@ function addMsg(role, text){
   updateEmptyState();
 }
 
+// Estado de escritura del asistente
+let typingBubble = null; // apunta al elemento .bubble de la última burbuja de asistente en escritura
+function showTyping(){
+  // Si ya existe, no duplicar
+  if(typingBubble && typingBubble.isConnected) return typingBubble;
+  const wrap = document.createElement('div');
+  wrap.className = 'msg assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  const dots = document.createElement('span');
+  dots.className = 'typing-dots';
+  dots.innerHTML = '<i></i><i></i><i></i>';
+  bubble.appendChild(dots);
+  wrap.appendChild(bubble);
+  (getChat()||document.body).appendChild(wrap);
+  const _c=getChat(); if(_c){ _c.scrollTop = _c.scrollHeight; }
+  typingBubble = bubble;
+  { const h=getHero(); if(h){ h.style.display='none'; } }
+  updateEmptyState();
+  return typingBubble;
+}
+function clearTyping(){ if(typingBubble && typingBubble.isConnected){ typingBubble.parentElement?.remove(); } typingBubble=null; }
+
+// Escribe texto en la burbuja con efecto "typewriter"
+function streamIntoBubble(text){
+  const bubble = typingBubble || showTyping();
+  // Usar textContent para evitar HTML injection y preservar con CSS white-space
+  bubble.textContent = '';
+  // Velocidad: ~150 pasos máx (~3 s). Ajuste por longitud
+  const total = String(text||'');
+  const steps = Math.min(150, Math.max(30, Math.ceil(total.length/4)));
+  const chunk = Math.max(1, Math.ceil(total.length / steps));
+  let i = 0;
+  const timer = setInterval(()=>{
+    i += chunk;
+    if(i >= total.length){
+      bubble.textContent = total;
+      clearInterval(timer);
+      typingBubble = null; // finalizado
+      const _c=getChat(); if(_c){ _c.scrollTop = _c.scrollHeight; }
+      return;
+    }
+    bubble.textContent = total.slice(0, i);
+    const _c=getChat(); if(_c){ _c.scrollTop = _c.scrollHeight; }
+  }, 20);
+}
+
 // WebSocket chat
 let ws;
 function connectWS(){
@@ -36,7 +83,12 @@ function connectWS(){
   ws.onclose = ()=> setConnStatus('offline');
   ws.onerror = ()=> setConnStatus('offline');
   ws.onmessage = (e)=>{
-    try { const msg = JSON.parse(e.data); if(msg.type==='assistant_message'){ addMsg('assistant', msg.text);} } catch{}
+    try {
+      const msg = JSON.parse(e.data);
+      if(msg.type==='assistant_message'){
+        streamIntoBubble(msg.text||'');
+      }
+    } catch{}
   };
 }
 
@@ -83,8 +135,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const text = (input.value || '').trim();
     if(!text) return;
     addMsg('user', text);
+    showTyping();
     if(ws && ws.readyState === 1){
       try { ws.send(JSON.stringify({type:'user_message', text})); } catch {}
+    } else {
+      // Fallback HTTP cuando WS no está conectado
+      const sid = (window.OPTI && window.OPTI.CHAT_SESSION_ID) ? window.OPTI.CHAT_SESSION_ID : '';
+      fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken || ''
+        },
+        body: JSON.stringify({ text, session_id: sid })
+      }).then(r=>r.json()).then(data=>{
+        if(data && data.text){ streamIntoBubble(data.text); } else { clearTyping(); }
+      }).catch(()=>{ clearTyping(); });
     }
     input.value = '';
   };

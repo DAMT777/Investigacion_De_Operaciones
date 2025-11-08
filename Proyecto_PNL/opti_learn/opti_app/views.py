@@ -1,4 +1,6 @@
 import time
+import json
+import uuid
 from typing import Any, Dict
 
 from django.http import JsonResponse
@@ -17,6 +19,7 @@ from .serializers import (
 from .core import analyzer
 from .core import solver_gradiente
 from .core import recommender_ai
+from .ai import groq_service
 
 
 @ensure_csrf_cookie
@@ -31,9 +34,54 @@ def index(request):
         )
         chat_session_id = str(session.id)
     except (OperationalError, ProgrammingError):
-        # BD sin migraciones: mostrar UI y permitir que el usuario migre sin romper.
-        chat_session_id = ''
+        # BD sin migraciones: generar UUID efímero para permitir conexión WS sin persistencia.
+        chat_session_id = str(uuid.uuid4())
     return render(request, 'index.html', {"chat_session_id": chat_session_id})
+
+
+@api_view(["POST"])
+def ai_chat(request):
+    text = (request.data or {}).get('text', '')
+    session_id = (request.data or {}).get('session_id')
+    if not text:
+        return Response({'detail': 'Texto vacío.'}, status=400)
+
+    # Construir historial básico si la BD está disponible
+    history = []
+    try:
+        if session_id:
+            session = ChatSession.objects.get(id=session_id)
+            for m in session.messages.order_by('created_at'):
+                if m.role in ('user','assistant','system'):
+                    history.append({'role': m.role, 'content': m.content})
+    except Exception:
+        pass
+
+    try:
+        messages = groq_service.build_messages_from_session(history, text)
+        assistant_text = groq_service.chat_completion(messages)
+    except Exception as e:
+        # Fallback local si Groq no está disponible
+        assistant_text = (
+            "No se pudo contactar al asistente IA. "
+            "Verifica GROQ_API_KEY y el paquete 'groq'.\n\n"
+            f"Detalle: {str(e)}"
+        )
+        try:
+            payload = json.loads(text)
+            if isinstance(payload, dict) and 'objective_expr' in payload:
+                meta = analyzer.analyze_problem(payload)
+                rec = recommender_ai.recommend(meta)
+                assistant_text += (
+                    "\n\nAnálisis preliminar: "
+                    f"Variables: {meta.get('variables')} | "
+                    f"Eq: {meta.get('has_equalities')} | Ineq: {meta.get('has_inequalities')} | "
+                    f"Cuadrática: {meta.get('is_quadratic')} | Método sugerido: {rec.get('method')}"
+                )
+        except Exception:
+            pass
+
+    return Response({'type': 'assistant_message', 'text': assistant_text})
 
 
 # Métodos: vistas simples por cada técnica
