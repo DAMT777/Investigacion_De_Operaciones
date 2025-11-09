@@ -4,6 +4,16 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Carga variables desde .env si existe (desarrollo / despliegues simples)
+# override=True para priorizar el archivo .env sobre variables previas del sistema
+# (útil si antes configuraste GROQ_API_KEY con setx y ahora quieres usar .env)
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv(BASE_DIR / ".env", override=True)
+except Exception:
+    # Si python-dotenv no está instalado, continúa sin romper
+    pass
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-secret-key")
 DEBUG = os.getenv("DEBUG", "1") == "1"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")

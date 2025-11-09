@@ -11,16 +11,23 @@ Para habilitar el módulo de IA con Groq:
 
    groq>=0.10.0
 
-2) Configura la clave de API en tu entorno (Windows PowerShell):
+2) Configura la clave de API
 
-   setx GROQ_API_KEY "TU_CLAVE_AQUI"
+   Opción A: usando archivo `.env` (recomendado en desarrollo)
 
-   Luego cierra y vuelve a abrir la terminal.
+   - Copia `opti_learn/.env.example` a `opti_learn/.env` y completa:
+
+     GROQ_API_KEY=TU_CLAVE_AQUI
+
+   Opción B: como variable de entorno del sistema (Windows PowerShell)
+
+     setx GROQ_API_KEY "TU_CLAVE_AQUI"
+
+   Luego cierra y vuelve a abrir la terminal si usas `setx`.
 
 3) Variables opcionales:
 
-   - GROQ_MODEL (por defecto: llama3-8b-8192)
+   - GROQ_MODEL (por defecto: llama-3.1-8b-instant)
    - AI_TEMPERATURE (por defecto: 0.2)
    - AI_MAX_TOKENS (por defecto: 2048)
    - AI_PROMPT_PATH (ruta alternativa al prompt contextual)
-

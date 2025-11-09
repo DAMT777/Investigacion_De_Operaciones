@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
   <head>
     <meta charset="utf-8">
@@ -16,9 +16,6 @@
   </head>
   <body class="bg-gradient theme-dark">
     <div class="d-flex min-vh-100 app-shell">
-      <!-- Sidebar -->
-      
-
       <!-- Main area -->
       <div class="flex-grow-1 d-flex flex-column">
         <main class="px-4 pt-2 d-flex gap-3 flex-wrap position-relative">
@@ -29,7 +26,6 @@
                 <span class="inner"></span>
               </button>
               <h6 class="m-0">Asistente Educativo</h6>
-              <!-- Indicador de conexión removido a solicitud del usuario -->
               <div class="ms-auto"></div>
             </div>
             <div id="chat" class="chat-area p-3">
@@ -63,17 +59,18 @@
       <div class="overlay-body p-3">
         <div class="mb-2 small text-dark-50">Métodos disponibles</div>
         <ul class="list-unstyled small nav-vertical">
-          <li><a class="item-link" href="/methods/qp">Programación cuadrática</a></li>
-          <li><a class="item-link" href="/methods/lagrange">Lagrange</a></li>
-          <li><a class="item-link" href="/methods/kkt">Condiciones KKT</a></li>
-          <li><a class="item-link" href="/methods/gradient">Gradiente</a></li>
-          <li><a class="item-link" href="/methods/differential">Cálculo diferencial</a></li>
+          <li><a class="item-link" href="/methods/qp"><i class="bi bi-graph-up-arrow me-2"></i>Programación cuadrática</a></li>
+          <li><a class="item-link" href="/methods/lagrange"><i class="bi bi-flag me-2"></i>Lagrange</a></li>
+          <li><a class="item-link" href="/methods/kkt"><i class="bi bi-shield-check me-2"></i>Condiciones KKT</a></li>
+          <li><a class="item-link" href="/methods/gradient"><i class="bi bi-sliders me-2"></i>Gradiente</a></li>
+          <li><a class="item-link" href="/methods/differential"><i class="bi bi-calculator me-2"></i>Cálculo diferencial</a></li>
         </ul>
       </div>
       <div class="overlay-footer mt-auto p-3 small d-flex align-items-center gap-2">
-        <div class="form-check form-switch">
+        <div class="form-check form-switch d-flex align-items-center gap-2 m-0">
+          <i class="bi bi-moon"></i>
           <input class="form-check-input" type="checkbox" id="themeToggle">
-          <label class="form-check-label" for="themeToggle">Modo oscuro</label>
+          <label class="form-check-label mb-0" for="themeToggle">Modo oscuro</label>
         </div>
       </div>
     </aside>
@@ -82,4 +79,3 @@
     <script src="/static/opti_app/js/app.js"></script>
   </body>
   </html>
-

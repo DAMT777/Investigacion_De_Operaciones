@@ -8,16 +8,35 @@ from django.conf import settings
 
 
 def _get_api_key() -> Optional[str]:
-    # Prioriza variable de entorno para no hardcodear secretos.
-    return os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+    # Prioriza variable de entorno y limpia espacios/comillas accidentales.
+    raw = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+    if raw is None:
+        return None
+    key = str(raw).strip().strip('"').strip("'")
+    return key or None
+
+
+def resolve_prompt_path() -> Optional[Path]:
+    """Devuelve la ruta resuelta del prompt (aunque no exista) o None si no hay configuración."""
+    conf = getattr(settings, "AI_ASSISTANT", {}) or {}
+    raw_path = conf.get("prompt_path")
+    if not raw_path:
+        return None
+    p = Path(str(raw_path))
+    if not p.is_absolute():
+        try:
+            base_dir = Path(getattr(settings, "BASE_DIR", "."))
+            p = (base_dir / p).resolve()
+        except Exception:
+            pass
+    return p
 
 
 def load_system_prompt() -> str:
-    conf = getattr(settings, "AI_ASSISTANT", {}) or {}
-    path = Path(conf.get("prompt_path", ""))
+    p = resolve_prompt_path()
     try:
-        if path.is_file():
-            return path.read_text(encoding="utf-8")
+        if p and p.is_file():
+            return p.read_text(encoding="utf-8")
     except Exception:
         pass
     # Fallback conciso si no existe el archivo.

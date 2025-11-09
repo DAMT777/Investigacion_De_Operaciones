@@ -84,6 +84,35 @@ def ai_chat(request):
     return Response({'type': 'assistant_message', 'text': assistant_text})
 
 
+@api_view(["GET"])
+def ai_prompt_health(request):
+    """Devuelve información sobre el prompt del sistema usado por la IA."""
+    conf = getattr(settings, "AI_ASSISTANT", {}) if hasattr(settings, "AI_ASSISTANT") else {}
+    resolved = groq_service.resolve_prompt_path()
+    path_str = str(resolved) if resolved else None
+    exists = bool(resolved and resolved.is_file())
+    head = None
+    size = None
+    try:
+        if exists:
+            txt = resolved.read_text(encoding="utf-8")
+            head = txt[:400]
+            size = len(txt)
+    except Exception as e:  # pragma: no cover
+        head = f"<error leyendo prompt: {e}>"
+    data = {
+        'configured_prompt_path': conf.get('prompt_path'),
+        'resolved_prompt_path': path_str,
+        'exists': exists,
+        'size': size,
+        'head': head,
+        'model': conf.get('model'),
+        'temperature': conf.get('temperature'),
+        'max_tokens': conf.get('max_tokens'),
+    }
+    return Response(data)
+
+
 # Métodos: vistas simples por cada técnica
 @ensure_csrf_cookie
 def method_view(request, method_key: str):
