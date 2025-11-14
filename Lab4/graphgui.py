@@ -328,7 +328,14 @@ class InterfazGrafo(tk.Tk):
 
         self._set_text_expresion("\n".join(lineas))
 
- 
+    def _normalizar_matriz_no_dirigida(self, matriz):
+        """Sincroniza la matriz no dirigida usando cualquier peso no nulo disponible."""
+        for i in range(self.tamano_n):
+            for j in range(i + 1, self.tamano_n):
+                peso = matriz[i][j] if matriz[i][j] != 0 else matriz[j][i]
+                matriz[i][j] = matriz[j][i] = peso
+
+
     def dibujar_grafo(self, camino_indices=None):
         if self.tamano_n <= 0:
             messagebox.showwarning("Aviso", "Primero cree la matriz (ingrese n y presione 'Crear matriz').")
@@ -360,10 +367,7 @@ class InterfazGrafo(tk.Tk):
 
         dirigido = self.es_dirigido.get()
         if not dirigido:
-            for i in range(self.tamano_n):
-                for j in range(i+1, self.tamano_n):
-                    w = max(matriz[i][j], matriz[j][i])
-                    matriz[i][j] = matriz[j][i] = w
+            self._normalizar_matriz_no_dirigida(matriz)
 
         # Actualizar expresión V y A con la matriz ya normalizada según dirigido
         self._actualizar_expresion(nombres_col, matriz, dirigido)
@@ -663,10 +667,7 @@ class InterfazGrafo(tk.Tk):
 
         dirigido = self.es_dirigido.get()
         if not dirigido:
-            for i in range(self.tamano_n):
-                for j in range(i+1, self.tamano_n):
-                    w = max(matriz[i][j], matriz[j][i])
-                    matriz[i][j] = matriz[j][i] = w
+            self._normalizar_matriz_no_dirigida(matriz)
 
         nombre_origen = self.combo_origen.get().strip()
         nombre_destino = self.combo_destino.get().strip()
