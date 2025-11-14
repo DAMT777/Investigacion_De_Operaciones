@@ -36,6 +36,7 @@ class InterfazGrafo(tk.Tk):
         self.ultima_posiciones = []
         self.nodo_seleccionado = None
         self._id_resalte_nodo = None
+        self._label_positions = []
 
         self._construir_controles_superiores()
         self._construir_zona_matriz()
@@ -415,6 +416,7 @@ class InterfazGrafo(tk.Tk):
         self._actualizar_expresion(nombres_col, matriz, dirigido)
 
         self.canvas_grafo.delete("all")
+        self._label_positions = []
 
         ancho = self.canvas_grafo.winfo_width()
         alto = self.canvas_grafo.winfo_height()
@@ -644,6 +646,7 @@ class InterfazGrafo(tk.Tk):
 
         lx = (c1x + c2x)/2 + out_x*10
         ly = (c1y + c2y)/2 + out_y*10
+        lx, ly = self._ajustar_posicion_sin_solapamiento(lx, ly)
         self._dibujar_etiqueta(lx, ly, str(peso))
 
 
@@ -702,6 +705,7 @@ class InterfazGrafo(tk.Tk):
             bx += nx*offset_perp + (tdx/tn)*offset_along
             by += ny*offset_perp + (tdy/tn)*offset_along
 
+            bx, by = self._ajustar_posicion_sin_solapamiento(bx, by)
             self._dibujar_etiqueta(bx, by, str(peso),
                                    color_texto=color_texto)
 
@@ -714,10 +718,56 @@ class InterfazGrafo(tk.Tk):
                 capstyle=tk.ROUND
             )
 
-            ox, oy = self._offset_perpendicular(sx, sy, ex, ey, 10)
-            self._dibujar_etiqueta(mx + ox, my + oy,
-                                   str(peso),
+            lx, ly = self._calcular_posicion_etiqueta_linea(sx, sy, ex, ey)
+            self._dibujar_etiqueta(lx, ly, str(peso),
                                    color_texto=color_texto)
+
+
+    def _calcular_posicion_etiqueta_linea(self, sx, sy, ex, ey):
+        mx, my = (sx + ex)/2, (sy + ey)/2
+        ox, oy = self._offset_perpendicular(sx, sy, ex, ey, 14)
+        lx, ly = mx + ox, my + oy
+
+        dx, dy = ex - sx, ey - sy
+        dist = math.hypot(dx, dy) or 1.0
+        ux, uy = dx/dist, dy/dist
+        abs_dx, abs_dy = abs(dx), abs(dy)
+
+        ratio = 1.6
+        if abs_dx < 1e-6 and abs_dy < 1e-6:
+            along = 0.0
+        elif abs_dx * ratio < abs_dy:
+            along = 16 if sy < ey else -16
+        elif abs_dy * ratio < abs_dx:
+            along = 16 if sx < ex else -16
+        else:
+            along = 12 if (sx + sy) <= (ex + ey) else -12
+
+        lx += ux * along
+        ly += uy * along
+
+        return self._ajustar_posicion_sin_solapamiento(lx, ly)
+
+
+    def _ajustar_posicion_sin_solapamiento(self, x, y):
+        posiciones = getattr(self, "_label_positions", None)
+        if posiciones is None:
+            self._label_positions = []
+            posiciones = self._label_positions
+
+        min_dist = 22
+        max_intentos = 8
+        paso = 10
+        intentos = 0
+
+        while any((x - px)**2 + (y - py)**2 < min_dist**2 for px, py in posiciones) and intentos < max_intentos:
+            ang = (intentos % 4) * (math.pi / 2)
+            x += math.cos(ang) * paso
+            y += math.sin(ang) * paso
+            intentos += 1
+
+        posiciones.append((x, y))
+        return x, y
 
 
     # =====================================================================
