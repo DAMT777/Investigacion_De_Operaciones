@@ -141,6 +141,10 @@ def build_iteration_views(steps, c, A, b, sense="max"):
                 "after_df": after_df,
                 "entering": entering,
                 "leaving": leaving,
+                "pivot_row": prow,
+                "pivot_col_index": pcol,
+                "pivot_col_name": entering,
+                "pivot_value": t_before[prow, pcol] if prow is not None and pcol is not None else None,
             }
         )
     return views
