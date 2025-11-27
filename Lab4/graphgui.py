@@ -53,15 +53,15 @@ class InterfazGrafo(tk.Tk):
         ttk.Checkbutton(marco_superior, text="Dirigido", variable=self.es_dirigido).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(marco_superior, text="Dibujar grafo", command=self.dibujar_grafo).pack(side=tk.LEFT, padx=(0, 20))
 
-        ttk.Label(marco_superior, text="Origen:").pack(side=tk.LEFT)
-        self.combo_origen = ttk.Combobox(marco_superior, state="readonly", width=12, values=[])
-        self.combo_origen.pack(side=tk.LEFT, padx=(5, 10))
+        #ttk.Label(marco_superior, text="Origen:").pack(side=tk.LEFT)
+        #self.combo_origen = ttk.Combobox(marco_superior, state="readonly", width=12, values=[])
+        #self.combo_origen.pack(side=tk.LEFT, padx=(5, 10))
 
-        ttk.Label(marco_superior, text="Destino:").pack(side=tk.LEFT)
-        self.combo_destino = ttk.Combobox(marco_superior, state="readonly", width=12, values=[])
-        self.combo_destino.pack(side=tk.LEFT, padx=(5, 10))
+        #ttk.Label(marco_superior, text="Destino:").pack(side=tk.LEFT)
+        #self.combo_destino = ttk.Combobox(marco_superior, state="readonly", width=12, values=[])
+        #self.combo_destino.pack(side=tk.LEFT, padx=(5, 10))
 
-        ttk.Button(marco_superior, text="Calcular ruta (Dijkstra)", command=self.calcular_ruta_dijkstra).pack(side=tk.LEFT)
+        #ttk.Button(marco_superior, text="Calcular ruta (Dijkstra)", command=self.calcular_ruta_dijkstra).pack(side=tk.LEFT)
 
         mensaje_ayuda = (
             "Instrucciones: ponga nombres de nodos en la fila superior y columna izquierda.\n"
